@@ -1,7 +1,7 @@
 package autorestapi.accuweather.indices;
 
 import autorestapi.accuweather.AbstractTest;
-import autorestapi.accuweather.indices.fiveDay.FiveDay;
+import autorestapi.accuweather.indices.metadata.Metadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -17,49 +17,48 @@ import java.net.URISyntaxException;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class FiveDaysForAllIndicesTest extends AbstractTest {
+public class ListDailyGroupIndicesTest extends AbstractTest {
 
     private static final Logger logger
-            = LoggerFactory.getLogger(FiveDaysForAllIndicesTest.class);
-
+            = LoggerFactory.getLogger(ListDailyGroupIndicesTest.class);
 
     @Test
-    void getFiveDaysForAllIndices_shouldReturn200() throws IOException {
+    void getListDailyGroupIndices_shouldReturn200() throws IOException {
         logger.info("Тест код ответ 200 запущен");
         ObjectMapper mapper = new ObjectMapper();
-        FiveDay forecast = new FiveDay();
-        forecast.setName("Flight Delays");
+        Metadata data = new Metadata();
+        data.setName("All API");
 
-        logger.debug("Формируем мок GET /indices/v1/daily/5day/52/groups/8");
-        stubFor(get(urlPathEqualTo("/indices/v1/daily/5day/52/groups/8"))
+        logger.debug("Формируем мок GET /indices/v1/daily");
+        stubFor(get(urlPathEqualTo("/indices/v1/daily"))
                 .willReturn(aResponse().withStatus(200)
-                        .withBody(mapper.writeValueAsString(forecast))));
+                        .withBody(mapper.writeValueAsString(data))));
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
         logger.debug("http-клиент создан");
 
-        HttpGet request = new HttpGet(getBaseUrl() + "/indices/v1/daily/5day/52/groups/8");
+        HttpGet request = new HttpGet(getBaseUrl() + "/indices/v1/daily");
 
         HttpResponse response = httpClient.execute(request);
 
-        verify(getRequestedFor(urlPathEqualTo("/indices/v1/daily/5day/52/groups/8")));
+        verify(getRequestedFor(urlPathEqualTo("/indices/v1/daily")));
         assertEquals(200, response.getStatusLine().getStatusCode());
-        assertEquals("Flight Delays", mapper.readValue(response
-                .getEntity().getContent(), FiveDay.class).getName());
+        assertEquals("All API", mapper.readValue(response
+                .getEntity().getContent(), Metadata.class).getName());
     }
 
 
     @Test
-    void getFiveDaysForAllIndices_shouldReturn401() throws IOException, URISyntaxException {
+    void getListDailyGroupIndices_shouldReturn401() throws IOException, URISyntaxException {
         logger.info("Тест код ответ 401 запущен");
         //given
-        logger.debug("Формируем мок GET /indices/v1/daily/5day/52/groups/8");
-        stubFor(get(urlPathEqualTo("/indices/v1/daily/5day/52/groups/8"))
+        logger.debug("Формируем мок GET /indices/v1/daily");
+        stubFor(get(urlPathEqualTo("/indices/v1/daily"))
                 .withQueryParam("apiKey", containing("vU3yjDZtkiO8GCrGgfI6AApccY4AiMfn"))
                 .willReturn(aResponse()
                         .withStatus(401).withBody("Unauthorized")));
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpGet request = new HttpGet(getBaseUrl()+"/indices/v1/daily/5day/52/groups/8");
+        HttpGet request = new HttpGet(getBaseUrl()+"/indices/v1/daily");
         URI uri = new URIBuilder(request.getURI())
                 .addParameter("apiKey", "P_vU3yjDZtkiO8GCrGgfI6AApccY4AiMfn")
                 .build();
@@ -68,7 +67,7 @@ public class FiveDaysForAllIndicesTest extends AbstractTest {
         //when
         HttpResponse response = httpClient.execute(request);
         //then
-        verify(getRequestedFor(urlPathEqualTo("/indices/v1/daily/5day/52/groups/8")));
+        verify(getRequestedFor(urlPathEqualTo("/indices/v1/daily")));
         assertEquals(401, response.getStatusLine().getStatusCode());
         assertEquals("Unauthorized", convertResponseToString(response));
     }

@@ -1,32 +1,76 @@
 package autorestapi.accuweather.current;
 
-import autorestapi.accuweather.AbstractAccuweatherTest;
+import autorestapi.accuweather.AbstractTest;
 import autorestapi.accuweather.conditions.current.CurrentCondition;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
+public class CurrentConditionsTest extends AbstractTest {
 
-import static io.restassured.RestAssured.given;
-
-public class CurrentConditionsTest extends AbstractAccuweatherTest {
+    private static final Logger logger
+            = LoggerFactory.getLogger(CurrentConditionsTest.class);
 
     @Test
-    void getCurrentConditions() {
+    void getCurrentConditions_shouldReturn200() throws IOException {
+        logger.info("Тест код ответ 200 запущен");
+        ObjectMapper mapper = new ObjectMapper();
+        CurrentCondition condition = new CurrentCondition();
+        condition.setMobileLink("http://www.accuweather.com/en/jp/oga-shi/16/current-weather/16?lang=en-us");
 
-        List<CurrentCondition> response = given()
-                .queryParam("apikey", getApiKey())
-                .when()
-                .get(getBaseUrl()+"/currentconditions/v1/15")
-                .then()
-                .statusCode(200)
-                .time(Matchers.lessThan(2000L))
-                .extract()
-                .body().jsonPath().getList(".", CurrentCondition.class);
+        logger.debug("Формируем мок GET /currentconditions/v1/15");
+        stubFor(get(urlPathEqualTo("/currentconditions/v1/15"))
+                .willReturn(aResponse().withStatus(200)
+                        .withBody(mapper.writeValueAsString(condition))));
 
-        Assertions.assertEquals(1,response.size());
-        Assertions.assertEquals("http://www.accuweather.com/en/jp/oga-shi/16/current-weather/16?lang=en-us",
-                response.get(0).getMobileLink());
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        logger.debug("http-клиент создан");
+
+        HttpGet request = new HttpGet(getBaseUrl() + "/currentconditions/v1/15");
+
+        HttpResponse response = httpClient.execute(request);
+
+        verify(getRequestedFor(urlPathEqualTo("/currentconditions/v1/15")));
+        assertEquals(200, response.getStatusLine().getStatusCode());
+        assertEquals("http://www.accuweather.com/en/jp/oga-shi/16/current-weather/16?lang=en-us",
+                mapper.readValue(response
+                        .getEntity().getContent(), CurrentCondition.class).getMobileLink());
+    }
+
+
+    @Test
+    void getCurrentConditions_shouldReturn401() throws IOException, URISyntaxException {
+        logger.info("Тест код ответ 401 запущен");
+        //given
+        logger.debug("Формируем мок GET /currentconditions/v1/15");
+        stubFor(get(urlPathEqualTo("/currentconditions/v1/15"))
+                .withQueryParam("apiKey", containing("vU3yjDZtkiO8GCrGgfI6AApccY4AiMfn"))
+                .willReturn(aResponse()
+                        .withStatus(401).withBody("Unauthorized")));
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpGet request = new HttpGet(getBaseUrl()+"/currentconditions/v1/15");
+        URI uri = new URIBuilder(request.getURI())
+                .addParameter("apiKey", "P_vU3yjDZtkiO8GCrGgfI6AApccY4AiMfn")
+                .build();
+        request.setURI(uri);
+        logger.debug("http клиент создан");
+        //when
+        HttpResponse response = httpClient.execute(request);
+        //then
+        verify(getRequestedFor(urlPathEqualTo("/currentconditions/v1/15")));
+        assertEquals(401, response.getStatusLine().getStatusCode());
+        assertEquals("Unauthorized", convertResponseToString(response));
     }
 }
